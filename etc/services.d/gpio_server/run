@@ -1,0 +1,8 @@
+#!/usr/bin/with-contenv bash
+
+export LD_LIBRARY_PATH=/usr/local/lib
+
+PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+export PYTHONPATH=/usr/local/lib/python${PYVER}/site-packages
+
+exec python3 /gpio_server.py

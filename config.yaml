@@ -1,0 +1,21 @@
+name: "Odroid GPIO Flask Server"
+version: "1.0"
+slug: "odroid_gpio_flask"
+description: "Flask API to control GPIOs on Odroid M1S"
+startup: "application"
+boot: "auto"
+init: false
+gpio: true
+apparmor: false
+host_network: true
+privileged: 
+  - SYS_RAWIO 
+  - SYS_ADMIN
+devices: 
+  - /dev/gpiochip0 
+  - /dev/gpiochip1
+  - /dev/gpiochip2
+  - /dev/gpiochip3
+
+arch:
+  - aarch64
