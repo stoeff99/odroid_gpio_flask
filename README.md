@@ -10,8 +10,8 @@ Installion:
    
 	# HTTP commands to send to your add-on
 	rest_command:
-		gpio7_on:
-			url: "http://localhost:8000/pin/14/on"
+                gpio7_on:
+		        url: "http://localhost:8000/pin/14/on"
 			method: GET
 	
 		gpio7_off:
