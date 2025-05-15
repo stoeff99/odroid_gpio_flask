@@ -7,6 +7,7 @@ Installion:
  		- https://wiki.odroid.com/odroid-m1s/hardware/expansion_connectors#j4_-_2x20_pins
    	- Example for physical pin 7: GPIO0.B6 (#14) --> Line/Pin #14 in the HAOS configuration. See below:
 4) Add the necesary rest commands to configuration.yaml
+   
 		# HTTP commands to send to your add-on
 		rest_command:
   			gpio7_on:
