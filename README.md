@@ -25,6 +25,7 @@ rest_command:
     url: "http://localhost:8000/pin/8/off"
     method: GET
 
+
 switch:
   - platform: template
     switches:
