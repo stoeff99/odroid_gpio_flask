@@ -5,8 +5,7 @@ Installion:
 1) Copy the contents of the repository to the "Addons" folder on HAOS via Studio Code Server or similar editing tool
 2) The physical pin # are mapped to the corresponding gpiochip number and line. This is mapped in  gpio_server.py
 4) Add the necesary rest commands to configuration.yaml
-
-# HTTP commands to send to your add-on
+##HTTP commands to send to your add-on
 rest_command:
   gpio7_on:
     url: "http://localhost:8000/pin/7/on"
