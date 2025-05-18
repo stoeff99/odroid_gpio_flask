@@ -1,5 +1,4 @@
-##HTTP commands to send to your add-on
-
+#HTTP commands to send to your add-on
 rest_command:
   gpio7_on:
     url: "http://localhost:8000/pin/7/on"
@@ -17,7 +16,7 @@ rest_command:
     url: "http://localhost:8000/pin/8/off"
     method: GET
 
-
+#Switch for the two required functions
 switch:
   - platform: template
     switches:
@@ -49,6 +48,7 @@ switch:
               entity_id: input_boolean.gpio_pin8
           - action: rest_command.gpio8_off
 
+#Feedback on the status of the relevant pins
 command_line:
   - sensor:
       name: "Battery Heating Status"
