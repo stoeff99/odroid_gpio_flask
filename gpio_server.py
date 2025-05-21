@@ -5,75 +5,81 @@ import subprocess
 app = Flask(__name__)
 active_lines = {}
 
-# === Pin map defined directly here ===
-# Maps physical pin number to (gpiochip name, line number)
-# Examples: 
-# http://localhost:8000/pin/7/on; http://localhost:8000/pin/10/off; 
-# http://localhost:8000/pin/15/toggle ;http://localhost:8000/pin/26/status
-
+# === Pin map with optional invert_logic ===
+# Format: pin: (chip, line, {"invert_logic": True/False})
 PHYSICAL_PIN_MAP = {
-    7:  ("gpiochip0", 14),  # Example: GPIO0_A6
-    8:  ("gpiochip2", 4),   # Example: GPIO2_A4
-    10:  ("gpiochip2", 3),   # Example: GPIO2_A3
-    11: ("gpiochip0", 16),  # Example: GPIO0_C0
-    12:  ("gpiochip2", 7),   # Example: GPIO2_A7
-    13: ("gpiochip0", 17),  # Example: GPIO0_C1
-    15: ("gpiochip0", 18),  # Example: GPIO0_C2
-    16: ("gpiochip2", 13),  # Example: GPIO2_B5
-    18: ("gpiochip2", 14),  # Example: GPIO2_B6
-    22: ("gpiochip2", 8),  # Example: GPIO2_B0
-    23: ("gpiochip3", 19),  # Example: GPIO3_C3
-    24: ("gpiochip3", 1),  # Example: GPIO3_A1
-    26: ("gpiochip2", 9),  # Example: GPIO2_B1
-    27: ("gpiochip0", 12),  # Example: GPIO0_B4
-    28: ("gpiochip0", 11),  # Example: GPIO0_B3
-    29: ("gpiochip2", 16),  # Example: GPIO2_C0
-    31: ("gpiochip2", 15),  # Example: GPIO2_B7
-    32: ("gpiochip2", 10),  # Example: GPIO2_B2
-    35: ("gpiochip2", 5),   # Example: GPIO2_A5
-    36: ("gpiochip2", 6),   # Example: GPIO2_A6
-    # Add more pins from J3 2x7pin as needed. https://wiki.odroid.com/odroid-m1s/hardware/expansion_connectors
+    7:  ("gpiochip0", 14, {"invert_logic": False}),
+    8:  ("gpiochip2", 4, {"invert_logic": False}),
+    10: ("gpiochip2", 3, {"invert_logic": False}),
+    11: ("gpiochip0", 16, {"invert_logic": False}),
+    12: ("gpiochip2", 7, {"invert_logic": False}),
+    13: ("gpiochip0", 17, {"invert_logic": True}),  # Inverted
+    15: ("gpiochip0", 18, {"invert_logic": False}),
+    16: ("gpiochip2", 13, {"invert_logic": False}),
+    18: ("gpiochip2", 14, {"invert_logic": False}),
+    22: ("gpiochip2", 8, {"invert_logic": False}),
+    23: ("gpiochip3", 19, {"invert_logic": False}),
+    24: ("gpiochip3", 1, {"invert_logic": False}),
+    26: ("gpiochip2", 9, {"invert_logic": False}),
+    27: ("gpiochip0", 12, {"invert_logic": False}),
+    28: ("gpiochip0", 11, {"invert_logic": False}),
+    29: ("gpiochip2", 16, {"invert_logic": False}),
+    31: ("gpiochip2", 15, {"invert_logic": False}),
+    32: ("gpiochip2", 10, {"invert_logic": False}),
+    33: ("gpiochip0", 13, {"invert_logic": False}),
+    35: ("gpiochip2", 5, {"invert_logic": False}),
+    36: ("gpiochip2", 6, {"invert_logic": False}),
+    # Add more pins as needed
 }
 
 def get_gpio_line(physical_pin):
     if physical_pin not in PHYSICAL_PIN_MAP:
         raise ValueError(f"Pin {physical_pin} is not defined in PHYSICAL_PIN_MAP")
 
-    chip_name, line_number = PHYSICAL_PIN_MAP[physical_pin]
+    entry = PHYSICAL_PIN_MAP[physical_pin]
+    chip_name, line_number, config = entry if len(entry) == 3 else (*entry, {})
+
+    invert_logic = config.get("invert_logic", False)
     key = (chip_name, line_number)
 
     if key in active_lines:
-        return active_lines[key]
+        return active_lines[key], invert_logic
 
     try:
-        chip_path = f"/dev/{chip_name}"
-        chip = gpiod.Chip(chip_path)
+        chip = gpiod.Chip(f"/dev/{chip_name}")
         line = chip.get_line(line_number)
         line.request(consumer="ha_gpio", type=gpiod.LINE_REQ_DIR_OUT, default_vals=[0])
         active_lines[key] = line
-        print(f"Using {chip_path} for GPIO line {line_number} (pin {physical_pin})")
-        return line
+        print(f"Using /dev/{chip_name} line {line_number} (pin {physical_pin})")
+        return line, invert_logic
     except Exception as e:
         raise RuntimeError(f"Failed to access {chip_name} line {line_number} for pin {physical_pin}: {e}")
+
+def apply_invert(val, invert_logic):
+    return 1 - val if invert_logic else val
 
 @app.route("/pin/<int:pin>/<action>", methods=["GET"])
 def control_pin(pin, action):
     try:
-        line_obj = get_gpio_line(pin)
+        line, invert_logic = get_gpio_line(pin)
 
         if action == "on":
-            line_obj.set_value(1)
-            result = "HIGH"
+            line.set_value(apply_invert(1, invert_logic))
+            result = "HIGH" if not invert_logic else "LOW"
         elif action == "off":
-            line_obj.set_value(0)
-            result = "LOW"
+            line.set_value(apply_invert(0, invert_logic))
+            result = "LOW" if not invert_logic else "HIGH"
         elif action == "toggle":
-            value = line_obj.get_value()
-            new_value = 0 if value else 1
-            line_obj.set_value(new_value)
-            result = f"Toggled to {'HIGH' if new_value else 'LOW'}"
+            actual = line.get_value()
+            logical = apply_invert(actual, invert_logic)
+            new_logical = 0 if logical else 1
+            new_actual = apply_invert(new_logical, invert_logic)
+            line.set_value(new_actual)
+            result = f"Toggled to {'HIGH' if new_logical else 'LOW'}"
         elif action == "status":
-            result = str(line_obj.get_value())
+            actual = line.get_value()
+            logical = apply_invert(actual, invert_logic)
+            result = str(logical)
         else:
             abort(400, description="Invalid action. Use on, off, toggle, or status.")
 
@@ -89,17 +95,14 @@ def debug_gpioinfo():
     import shutil
     gpioinfo_path = shutil.which("gpioinfo")
     if not gpioinfo_path:
-        print("gpioinfo not found")
         return jsonify(error="gpioinfo not found on system"), 404
 
     try:
         output = subprocess.check_output([gpioinfo_path], text=True)
         return f"<pre>{output}</pre>"
     except subprocess.CalledProcessError as e:
-        print(f"Subprocess error: {e}")
         return jsonify(error=f"Command failed: {e}"), 500
     except Exception as e:
-        print(f"Unexpected error: {e}")
         return jsonify(error=f"Unexpected error: {e}"), 500
 
 @app.route("/pins", methods=["GET"])
